@@ -7,7 +7,7 @@ ipr: trust200902
 submissiontype: IETF
 v: 3
 area: "Security"
-workgroup: "JSON Object Signing and Encryption"
+workgroup: "Javascript Object Signing and Encryption"
 keyword:
 - HQC
 - JOSE
