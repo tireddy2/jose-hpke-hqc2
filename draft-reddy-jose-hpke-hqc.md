@@ -68,6 +68,13 @@ of {{PQ-HPKE}} and AES-256-GCM. The approach follows {{JOSE-PQ}}.
 This document does not change the JWE processing of {{JOSE-HPKE}}.
 {{COSE-HQC}} defines the corresponding COSE algorithms.
 
+Editor's note: This document is based on the HQC specification of
+2025-08-22. Before publication as an RFC, the parameter set names,
+key and ciphertext encodings and sizes, shared secret size, and
+recipient tests need to be checked against the final NIST HQC standard
+and updated as necessary. The normative HQC reference in {{HQC-HPKE}}
+also needs to be updated. Remove this note before publication.
+
 # Conventions and Definitions
 
 {::boilerplate bcp14-tagged}
@@ -92,6 +99,15 @@ is the same rationale as {{JOSE-PQ}} for ML-KEM.
 
 The algorithm names are the same as the COSE algorithm names in
 {{COSE-HQC}}.
+
+HQC-1 is deliberately included as a smaller option for deployments
+that accept its NIST security category 1 target in exchange for
+smaller public keys and encapsulated secrets. Implementations should
+generally prefer HQC-3 or HQC-5 when these size constraints do not
+apply, as discussed in {{HQC-HPKE}}.
+
+Test vectors for the algorithms defined in this section will be
+provided in {{test-vectors}} in a future version of this document.
 
 ## Integrated Encryption {#integrated}
 
@@ -129,6 +145,11 @@ Keys use the "AKP" key type of {{RFC9964}}, as in {{JOSE-PQ}}. The
 "alg" parameter is REQUIRED and MUST identify one algorithm from
 {{algs}}.
 
+Before using a JWK, an implementation MUST verify that its "alg"
+value equals the JWE "alg" value selected for that recipient. Matching
+only the KEM is insufficient since the Integrated Encryption and Key
+Encryption identifiers are distinct.
+
 The "pub" parameter contains the base64url-encoded output of
 SerializePublicKey. The "priv" parameter, for private keys, contains
 the base64url-encoded output of SerializePrivateKey. This is the
@@ -136,6 +157,15 @@ the base64url-encoded output of SerializePrivateKey. This is the
 be placed in "priv".
 
 The KEM MUST be determined from "alg", not from the length of "pub".
+
+When importing a JWK, implementations MUST base64url-decode "pub"
+and, if present, "priv", and apply the corresponding
+DeserializePublicKey and DeserializePrivateKey procedures and input
+validation requirements of {{HQC-HPKE}} for the selected KEM. When
+both "pub" and "priv" are imported, implementations MUST reconstruct
+the public key from the private seed according to {{HQC-HPKE}} for
+that KEM and verify that it matches the imported public key. A
+mismatch MUST cause the import to fail.
 
 # Encapsulated Secret Lengths {#lengths}
 
@@ -160,9 +190,23 @@ encapsulated secret of the wrong length before decapsulation.
 The security considerations of {{HQC-HPKE}}, {{JOSE-HPKE}}, and
 {{JOSE-PQ}} apply.
 
+The security category targeted by a KEM does not by itself determine
+the security of the complete JWE. Message security also depends on
+the HPKE KDF and AEAD, any PSK, and, in Key Encryption mode, the
+content encryption algorithm selected by the JWE "enc" parameter.
+In Integrated Encryption, AES-256-GCM protects the content directly.
+In Key Encryption, HPKE's AES-256-GCM protects the CEK; it does not
+require the content encryption algorithm to be AES-256-GCM or raise
+that algorithm's security strength.
+
 The PQ/T hybrid algorithms are intended to remain secure if either
 HQC or the elliptic-curve component remains secure. The HQC-only
 algorithms rely on HQC alone.
+
+The traditional component provides protection against classical
+attacks if HQC is compromised. Resistance to cryptographically
+relevant quantum computers still depends on the HQC component,
+together with the security of the symmetric primitives.
 
 The PQ/T hybrid algorithms are RECOMMENDED, following Section 13.3.1
 of {{RFC9958}}.
@@ -170,6 +214,19 @@ of {{RFC9958}}.
 When Key Encryption is used with multiple recipients, all recipients
 MUST use a quantum-resistant key management algorithm, as required by
 {{JOSE-PQ}}.
+
+Encrypting the same CEK independently for an HQC recipient and an
+ML-KEM recipient does not create a hybrid KEM. Recovery of the CEK
+through either recipient is sufficient to decrypt the content.
+
+Implementations SHOULD enforce limits on the total encoded JWE size,
+the number of recipients, memory allocation, and aggregate
+cryptographic work. Size limits need to account for base64url
+encoding and, when "ek" is in the protected header, the additional
+encoding of that header. In Key Encryption, each HQC recipient adds
+an encapsulated secret and an encrypted CEK. Implementations SHOULD
+reject messages exceeding applicable limits before allocating large
+buffers or starting decapsulation.
 
 # IANA Considerations {#iana}
 
@@ -204,6 +261,11 @@ The following fields apply to every entry:
 * Algorithm Analysis Document(s): {{HQC-HPKE}}
 
 --- back
+
+# Test Vectors {#test-vectors}
+
+Test vectors for the algorithms defined in this document will be
+provided in this appendix in a future version.
 
 # Acknowledgments
 {:numbered="false"}
